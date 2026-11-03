@@ -10,10 +10,7 @@
 #import <stdlib.h>
 #import <string.h>
 #import "sound.h"
-
-#define SR 44100
-#define CH 2
-#define FRAME_BYTES (CH * 2)
+#import "const.h"
 
 //PCMデータのフレーム数
 static uint64_t frame(NSData *pcm) {
@@ -192,7 +189,32 @@ static NSData *parse_wav(NSData *data) {
 	return nil;
 }
 
-static BOOL save_wav(NSString *path, NSData *pcm) {
+static NSData *build_announce(uint8_t hour) {
+	NSMutableData *out = [NSMutableData data];
+
+	NSData *prefix = parse_wav(load_sound_prefix());
+	[out appendData:prefix];
+
+	if (hour != 12) {
+		if (hour < 12) {
+			NSData *voice = parse_wav(load_sound_am());
+			[out appendData:voice];
+		} else {
+			NSData *voice = parse_wav(load_sound_pm());
+			[out appendData:voice];
+		}
+	}
+
+	NSData *hour_voice = parse_wav(load_sound_time( ( (hour + 11) % 12 ) + 1 ));
+	[out appendData:hour_voice];
+
+	NSData *sufix = parse_wav(load_sound_sufix());
+	[out appendData:sufix];
+
+	return out;
+}
+
+BOOL save_wav(NSString *path, NSData *pcm) {
 	uint32_t data_size = (uint32_t)[pcm length];
 	NSMutableData *out = [NSMutableData dataWithCapacity:44 + data_size];
 
@@ -219,32 +241,7 @@ static BOOL save_wav(NSString *path, NSData *pcm) {
 	return YES;
 }
 
-static NSData *build_announce(uint8_t hour) {
-	NSMutableData *out = [NSMutableData data];
-
-	NSData *prefix = parse_wav(load_sound_prefix());
-	[out appendData:prefix];
-
-	if (hour != 12) {
-		if (hour < 12) {
-			NSData *voice = parse_wav(load_sound_am());
-			[out appendData:voice];
-		} else {
-			NSData *voice = parse_wav(load_sound_pm());
-			[out appendData:voice];
-		}
-	}
-
-	NSData *hour_voice = parse_wav(load_sound_time(hour));
-	[out appendData:hour_voice];
-
-	NSData *sufix = parse_wav(load_sound_sufix());
-	[out appendData:sufix];
-
-	return out;
-}
-
-BOOL gen(uint8_t hour, NSString *out_path) {
+NSData *gen(uint8_t hour, NSString *out_path) {
 	//素材読み込み
 	NSData *bgm = nil;
 	NSData *voice = build_announce(hour);
@@ -264,13 +261,13 @@ BOOL gen(uint8_t hour, NSString *out_path) {
 	//ポーンの開始位置 = BGMの終端
 	int po_offset = frame(pcm);
 	if (po_offset < SR * 3) {
-		return NO;
+		return nil;
 	}
 
 	//読み上げがピに被る場合は警告
 	int voice_end = voice_offset + frame(voice);
 	if (voice_end > po_offset - SR * 3) {
-		return NO;
+		return nil;
 	}
 
 	//ピ(440Hz 0.1秒)を、ポーンの2秒前と1秒前に重ねる
@@ -281,10 +278,7 @@ BOOL gen(uint8_t hour, NSString *out_path) {
 	mix(pcm, pi, po_offset - SR * 1, 1.0);
 
 	//ポーン(880Hz)をBGMの直後に足す
-	write_fadeout_tone(pcm, 880, 2.0, 1.0);
+	write_fadeout_tone(pcm, 880, ZHIHOU_POON_SEC, 1.0);
 
-	//WAVとして保存
-	if (save_wav(out_path, pcm) == NO) return NO;
-
-	return YES;
+	return pcm;
 }
