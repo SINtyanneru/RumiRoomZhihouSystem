@@ -1,3 +1,4 @@
+#pragma clang diagnostic ignored "-Wc23-extensions"
 #import <Foundation/Foundation.h>
 #import <stdint.h>
 
