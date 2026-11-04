@@ -4,6 +4,7 @@
 #import <stdint.h>
 #import <time.h>
 #import <stdio.h>
+#import <getopt.h>
 #import "gen.h"
 #import "const.h"
 #import "play.h"
@@ -34,11 +35,27 @@ static time_t next_target(void) {
 	return z;
 }
 
-int main() {
+int main(int argc, char *argv[]) {
 	printf("るみ部屋時報システム RRZS\n");
 
 	@autoreleasepool {
 		NSString *WAV_PATH = @"/tmp/zhihou.wav";
+		BOOL sound_play = YES;
+
+		struct option option_list[] = {
+			{ "no-play", no_argument, NULL, 0 }
+		};
+
+		int32_t opt;
+		while ((opt = getopt_long(argc, argv, "hvo:c:", option_list, NULL)) != -1) {
+			switch (opt) {
+				case 0: {
+					sound_play = NO;
+					printf("[ INFO ]音声再生をしません。\n");
+					break;
+				}
+			}
+		}
 
 		while (YES) {
 			time_t z = next_target();
@@ -70,13 +87,15 @@ int main() {
 			}
 
 			//再生
-			if (pcm != nil && z_play > time(NULL)) {
-				waiting_until(z_play);
-				printf("再生開始\n");
-				play_pcm(pcm, CH, SR, SND_PCM_FORMAT_S16_LE, "default");
-				printf("終了\n");
-			} else {
-				printf("間に合わなかったのでスキップ\n");
+			if (sound_play) {
+				if (pcm != nil && z_play > time(NULL)) {
+					waiting_until(z_play);
+					printf("再生開始\n");
+					play_pcm(pcm, CH, SR, SND_PCM_FORMAT_S16_LE, "default");
+					printf("終了\n");
+				} else {
+					printf("間に合わなかったのでスキップ\n");
+				}
 			}
 
 			//対象時刻まで待つ(これで次周のnext_targetは必ず次の時間を返す)
