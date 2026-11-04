@@ -42,7 +42,7 @@ int main() {
 
 		while (YES) {
 			time_t z = next_target();
-			time_t z_gen = z - 60;
+			time_t z_gen = z - 300;
 			time_t z_play = z - 10;
 			NSData *pcm = nil;
 
